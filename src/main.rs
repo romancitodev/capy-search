@@ -16,6 +16,7 @@ use search::{
         ModernButton, ModernColor, ModernContainer, ModernTheme,
     },
 };
+use webbrowser;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -45,7 +46,7 @@ enum Message {
     OnPressing,
     TagSelected(String /* name of the tag */),
     QueryChange(String),
-    OnChangingTheme(bool),
+    OnChangingTheme,
     SetSearch(String),
     RemoveSearch(usize),
 }
@@ -86,15 +87,25 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
+        static PAGES: [&str; 2] = [
+            "https://stackoverflow.com/search?q=",
+            "https://stackexchange.com/search?q=",
+        ];
         match message {
             Message::OnPressing => {
                 if !self.inputs.query.trim().is_empty() {
                     self.searches
-                        .insert(0, self.inputs.query.clone().trim().into())
+                        .insert(0, self.inputs.query.clone().trim().into());
+                    PAGES.iter().for_each(|url| {
+                        webbrowser::open(
+                            format!("{url}{query}", query = self.inputs.query.trim()).as_str(),
+                        )
+                        .unwrap();
+                    })
                 }
             }
-            Message::OnChangingTheme(state) => {
-                self.toggler = state;
+            Message::OnChangingTheme => {
+                self.toggler = !self.toggler;
                 self.theme = if self.toggler {
                     ModernTheme::Light
                 } else {
@@ -148,12 +159,13 @@ impl Application for App {
                 Message::TagSelected("exchange".into()),
             )
             .into(),
-            itag(
-                "images/geek-for-geeks.png",
-                (96.0, 177.0, 121.0),
-                Message::TagSelected("geeks".into()),
-            )
-            .into(),
+            button(icon('\u{F1D2}', 16))
+                .height(30)
+                .width(30)
+                .padding(6.2)
+                .on_press(Message::OnChangingTheme)
+                .style(ModernButton::Secondary)
+                .into(),
         ])
         .spacing(10);
 
@@ -227,9 +239,13 @@ fn icon(unicode: char, size: impl Into<Pixels>) -> Text<'static> {
 fn historial_text(query: &str, id: usize) -> Element<'static, Message> {
     Row::new()
         .push(
-            text(query)
-                .size(18)
-                .style(ModernColor::Custom(160.0, 160.0, 160.0)),
+            button(
+                text(query)
+                    .size(18)
+                    .style(ModernColor::Custom(160.0, 160.0, 160.0)),
+            )
+            .style(ModernButton::Text)
+            .on_press(Message::SetSearch(query.to_string())),
         )
         .push(horizontal_space(10))
         .push(
